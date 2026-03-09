@@ -54,7 +54,7 @@ const AI_PROVIDERS = {
     free: true,
     getKeyUrl: 'https://openrouter.ai/keys',
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
-      const model = modelOverride || sessionStorage.getItem('openrouter_model') || 'google/gemma-3n-e4b-it:free';
+      const model = modelOverride || localStorage.getItem('openrouter_model') || 'google/gemma-3n-e4b-it:free';
       const content = typeof userContent === 'string'
         ? userContent
         : userContent;
@@ -306,12 +306,12 @@ function buildPdfContent(base64Data, extraText) {
 // ---- Unified Call ----
 async function callAI(userContent, componentType) {
   const provider = AI_PROVIDERS[currentProvider];
-  const apiKey = sessionStorage.getItem(`apiKey_${currentProvider}`);
+  const apiKey = localStorage.getItem(`apiKey_${currentProvider}`);
   if (!apiKey) throw new Error('請先輸入 API Key');
 
   const systemPrompt = buildSystemPrompt(componentType);
   const modelOverride = currentProvider === 'openrouter'
-    ? (sessionStorage.getItem('openrouter_model') || undefined)
+    ? (localStorage.getItem('openrouter_model') || undefined)
     : undefined;
 
   const rawText = await provider.call(apiKey, systemPrompt, userContent, modelOverride);
