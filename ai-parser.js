@@ -50,14 +50,18 @@ const AI_PROVIDERS = {
 
   openrouter: {
     name: 'OpenRouter',
-    model: 'qwen/qwen2.5-vl-72b-instruct:free',
+    model: 'google/gemma-3-27b-it:free',
     free: true,
     getKeyUrl: 'https://openrouter.ai/keys',
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
-      const model = modelOverride || localStorage.getItem('openrouter_model') || 'qwen/qwen2.5-vl-72b-instruct:free';
+      const model = modelOverride || localStorage.getItem('openrouter_model') || 'google/gemma-3-27b-it:free';
       const content = typeof userContent === 'string'
         ? userContent
         : userContent;
+
+      // Thinking 模型需要更多 token 給 reasoning
+      const isThinking = model.includes('thinking');
+      const maxTokens = isThinking ? 16000 : 2000;
 
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -69,7 +73,7 @@ const AI_PROVIDERS = {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 2000,
+          max_tokens: maxTokens,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content }
