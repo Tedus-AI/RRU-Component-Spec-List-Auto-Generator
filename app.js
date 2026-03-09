@@ -660,6 +660,76 @@ async function handleCreateProject() {
 }
 
 // ============================================
+// Firebase Config Dialog
+// ============================================
+function openFirebaseDialog() {
+  const dialog = document.getElementById('firebaseDialog');
+  dialog.style.display = '';
+
+  // Pre-fill from localStorage if available
+  const saved = localStorage.getItem('firebase_config');
+  if (saved) {
+    try {
+      const cfg = JSON.parse(saved);
+      document.getElementById('fbApiKey').value = cfg.apiKey || '';
+      document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
+      document.getElementById('fbProjectId').value = cfg.projectId || '';
+      document.getElementById('fbStorageBucket').value = cfg.storageBucket || '';
+      document.getElementById('fbMessagingSenderId').value = cfg.messagingSenderId || '';
+      document.getElementById('fbAppId').value = cfg.appId || '';
+    } catch (e) { /* ignore */ }
+  }
+
+  // Show disconnect button if connected
+  document.getElementById('fbDisconnectBtn').style.display = firebaseReady ? '' : 'none';
+}
+
+function closeFirebaseDialog() {
+  document.getElementById('firebaseDialog').style.display = 'none';
+}
+
+function handleFirebaseConnect() {
+  const config = {
+    apiKey: document.getElementById('fbApiKey').value.trim(),
+    authDomain: document.getElementById('fbAuthDomain').value.trim(),
+    projectId: document.getElementById('fbProjectId').value.trim(),
+    storageBucket: document.getElementById('fbStorageBucket').value.trim(),
+    messagingSenderId: document.getElementById('fbMessagingSenderId').value.trim(),
+    appId: document.getElementById('fbAppId').value.trim()
+  };
+
+  if (!config.apiKey || !config.projectId) {
+    showToast('API Key 和 Project ID 為必填', 'warning');
+    return;
+  }
+
+  // Auto-fill authDomain if empty
+  if (!config.authDomain) {
+    config.authDomain = config.projectId + '.firebaseapp.com';
+  }
+
+  setFirebaseConfig(config);
+  closeFirebaseDialog();
+  showToast(`Firebase 已連線: ${config.projectId}`, 'success');
+}
+
+function handleFirebaseDisconnect() {
+  localStorage.removeItem('firebase_config');
+  if (firebase.apps.length > 0) {
+    firebase.app().delete().then(() => {
+      db = null;
+      firebaseReady = false;
+      updateFirebaseStatus(false);
+      const select = document.getElementById('projectSelect');
+      select.innerHTML = '<option value="">— 請先連線 Firebase —</option>';
+      selectedProjectId = '';
+      closeFirebaseDialog();
+      showToast('Firebase 已中斷連線', 'info');
+    });
+  }
+}
+
+// ============================================
 // AI Connection Test
 // ============================================
 async function handleTestConnection() {
