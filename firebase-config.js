@@ -6,12 +6,13 @@
 // Firebase config — 使用者需在此填入自己的 Firebase 設定
 // 或透過 URL 參數動態載入
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyCXRb5WNCl7otxPwjMCVsutvT0VHQEseUU",
+  authDomain: "g-quick-volume-evaluation.firebaseapp.com",
+  projectId: "g-quick-volume-evaluation",
+  storageBucket: "g-quick-volume-evaluation.firebasestorage.app",
+  messagingSenderId: "325375750956",
+  appId: "1:325375750956:web:cfae2ed9cc05501a0bb289",
+  measurementId: "G-HJBCDHTZPZ"
 };
 
 let db = null;
