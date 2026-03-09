@@ -18,10 +18,9 @@
       <span class="version-badge">v1.0</span>
     </div>
     <div class="header-right">
-      <div class="firebase-status" id="firebaseStatus" onclick="openFirebaseDialog()" style="cursor:pointer" title="點擊設定 Firebase">
+      <div class="firebase-status" id="firebaseStatus">
         <span class="status-dot offline"></span>
         <span class="status-text">Firebase 未連線</span>
-        <span class="firebase-gear">⚙</span>
       </div>
     </div>
   </header>
@@ -165,9 +164,14 @@
           </div>
         </div>
 
+        <div class="input-summary" id="inputSummary" style="display:none">
+          <span class="summary-label">將綜合解析：</span>
+          <span class="summary-tags" id="inputSummaryTags"></span>
+        </div>
         <button class="btn btn-primary btn-lg" id="parseBtn" onclick="handleAIParse()">
           <span class="btn-icon">🤖</span> AI 解析
         </button>
+        <p class="input-hint">可同時提供多種輸入，AI 會綜合所有資料一起解析</p>
       </div>
     </section>
 
@@ -243,50 +247,6 @@
       </div>
     </section>
   </main>
-
-  <!-- Firebase Config Dialog -->
-  <div class="dialog-overlay" id="firebaseDialog" style="display:none">
-    <div class="dialog">
-      <div class="dialog-header">
-        <h3>🔥 Firebase 連線設定</h3>
-        <button class="dialog-close" onclick="closeFirebaseDialog()">&times;</button>
-      </div>
-      <div class="dialog-body">
-        <p class="dialog-hint">請填入你的 Firebase 專案設定。可從 Firebase Console → 專案設定 → 一般 → 你的應用程式 取得。</p>
-        <div class="firebase-form">
-          <div class="field-group">
-            <label>API Key <span class="required">*</span></label>
-            <input type="text" id="fbApiKey" placeholder="AIzaSy...">
-          </div>
-          <div class="field-group">
-            <label>Auth Domain</label>
-            <input type="text" id="fbAuthDomain" placeholder="your-project.firebaseapp.com">
-          </div>
-          <div class="field-group">
-            <label>Project ID <span class="required">*</span></label>
-            <input type="text" id="fbProjectId" placeholder="your-project-id">
-          </div>
-          <div class="field-group">
-            <label>Storage Bucket</label>
-            <input type="text" id="fbStorageBucket" placeholder="your-project.appspot.com">
-          </div>
-          <div class="field-group">
-            <label>Messaging Sender ID</label>
-            <input type="text" id="fbMessagingSenderId" placeholder="123456789">
-          </div>
-          <div class="field-group">
-            <label>App ID</label>
-            <input type="text" id="fbAppId" placeholder="1:123456789:web:abc123">
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-primary" onclick="handleFirebaseConnect()">連線</button>
-          <button class="btn btn-outline" onclick="handleFirebaseDisconnect()" id="fbDisconnectBtn" style="display:none">中斷連線</button>
-          <button class="btn" onclick="closeFirebaseDialog()">取消</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Toast Notification -->
   <div class="toast-container" id="toastContainer"></div>

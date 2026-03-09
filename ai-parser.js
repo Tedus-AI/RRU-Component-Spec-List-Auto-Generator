@@ -168,6 +168,66 @@ function buildSystemPrompt(componentType) {
 [{ ... }, { ... }]`;
 }
 
+// ---- Combined Content Builder ----
+// 綜合所有有資料的輸入（文字+截圖+PDF）一起送給 AI
+function buildCombinedContent(text, imgBase64, imgMimeType, pdfB64) {
+  const hasText = !!text;
+  const hasImage = !!imgBase64;
+  const hasPdf = !!pdfB64;
+
+  // 純文字 → 直接回傳字串
+  if (hasText && !hasImage && !hasPdf) {
+    return text;
+  }
+
+  // 有圖片或 PDF → 需要多模態格式
+  if (currentProvider === 'gemini') {
+    const parts = [];
+    if (hasImage) parts.push({ inlineData: { mimeType: imgMimeType, data: imgBase64 } });
+    if (hasPdf) parts.push({ inlineData: { mimeType: 'application/pdf', data: pdfB64 } });
+    if (hasText) {
+      parts.push({ text: `以下是使用者的補充說明，請一併參考：\n${text}` });
+    } else {
+      parts.push({ text: '請從以上 datasheet 資料中抽取元件熱參數。' });
+    }
+    return parts;
+  }
+
+  if (currentProvider === 'anthropic') {
+    const content = [];
+    if (hasImage) {
+      content.push({ type: 'image', source: { type: 'base64', media_type: imgMimeType, data: imgBase64 } });
+    }
+    if (hasPdf) {
+      content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfB64 } });
+    }
+    if (hasText) {
+      content.push({ type: 'text', text: `以下是使用者的補充說明，請一併參考：\n${text}` });
+    } else {
+      content.push({ type: 'text', text: '請從以上 datasheet 資料中抽取元件熱參數。' });
+    }
+    return content;
+  }
+
+  // OpenRouter / Groq (OpenAI format) — PDF 不支援，僅圖片+文字
+  const content = [];
+  if (hasImage) {
+    content.push({ type: 'image_url', image_url: { url: `data:${imgMimeType};base64,${imgBase64}` } });
+  }
+  let textPart = '';
+  if (hasPdf) textPart += '[PDF content — 此 Provider 不支援直接 PDF 解析，請改用文字或截圖輸入]\n\n';
+  if (hasText) {
+    textPart += hasImage || hasPdf ? `以下是使用者的補充說明，請一併參考：\n${text}` : text;
+  } else {
+    textPart += '請從以上 datasheet 資料中抽取元件熱參數。';
+  }
+  content.push({ type: 'text', text: textPart });
+
+  // 如果只有文字部分（無圖片），直接回傳字串
+  if (!hasImage) return textPart;
+  return content;
+}
+
 // ---- Image Content Builder ----
 function buildImageContent(base64Data, mimeType, extraText) {
   const text = extraText || '請從此 datasheet 截圖中抽取元件熱參數。';

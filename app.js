@@ -113,6 +113,9 @@ function setupEventListeners() {
 
   // Paste event (for screenshots)
   document.addEventListener('paste', handlePaste);
+
+  // Text input — 監聽輸入變化以更新 summary
+  document.getElementById('textInput').addEventListener('input', updateInputSummary);
 }
 
 // ============================================
@@ -254,6 +257,7 @@ function loadImageFile(file) {
     preview.src = dataUrl;
     preview.style.display = 'block';
     document.querySelector('#imageDropZone .drop-zone-content').style.display = 'none';
+    updateInputSummary();
   };
   reader.readAsDataURL(file);
 }
@@ -285,27 +289,60 @@ function loadPdfFile(file) {
     info.textContent = `已載入: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
     info.style.display = 'block';
     document.querySelector('#pdfDropZone .drop-zone-content').style.display = 'none';
+    updateInputSummary();
   };
   reader.readAsDataURL(file);
+}
+
+// ============================================
+// Input Summary — 顯示哪些輸入來源有資料
+// ============================================
+function updateInputSummary() {
+  const text = document.getElementById('textInput').value.trim();
+  const hasText = !!text;
+  const hasImage = !!imageBase64;
+  const hasPdf = !!pdfBase64;
+  const count = (hasText ? 1 : 0) + (hasImage ? 1 : 0) + (hasPdf ? 1 : 0);
+
+  // 更新 tab 按鈕上的 has-data 標記
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const tab = btn.dataset.tab;
+    const has = (tab === 'text' && hasText) || (tab === 'image' && hasImage) || (tab === 'pdf' && hasPdf);
+    btn.classList.toggle('has-data', has);
+  });
+
+  // 更新摘要列
+  const summary = document.getElementById('inputSummary');
+  const tags = document.getElementById('inputSummaryTags');
+  if (count >= 2) {
+    const labels = [];
+    if (hasText) labels.push('文字');
+    if (hasImage) labels.push('截圖');
+    if (hasPdf) labels.push('PDF');
+    tags.innerHTML = labels.map(l => `<span class="summary-tag">${l}</span>`).join('');
+    summary.style.display = '';
+  } else {
+    summary.style.display = 'none';
+  }
 }
 
 // ============================================
 // AI Parse
 // ============================================
 async function handleAIParse() {
-  let content;
+  // 收集所有有資料的輸入來源
+  const text = document.getElementById('textInput').value.trim();
+  const hasText = !!text;
+  const hasImage = !!imageBase64;
+  const hasPdf = !!pdfBase64;
 
-  if (currentInputTab === 'text') {
-    const text = document.getElementById('textInput').value.trim();
-    if (!text) { showToast('請先輸入 datasheet 內容', 'warning'); return; }
-    content = text;
-  } else if (currentInputTab === 'image') {
-    if (!imageBase64) { showToast('請先貼上或上傳截圖', 'warning'); return; }
-    content = buildImageContent(imageBase64, imageMimeType);
-  } else if (currentInputTab === 'pdf') {
-    if (!pdfBase64) { showToast('請先上傳 PDF 檔案', 'warning'); return; }
-    content = buildPdfContent(pdfBase64);
+  if (!hasText && !hasImage && !hasPdf) {
+    showToast('請至少提供一種輸入（文字、截圖或 PDF）', 'warning');
+    return;
   }
+
+  // 綜合所有輸入來源
+  const content = buildCombinedContent(text, imageBase64, imageMimeType, pdfBase64);
 
   const apiKey = sessionStorage.getItem(`apiKey_${currentProvider}`);
   if (!apiKey) { showToast('請先輸入 API Key', 'warning'); return; }
@@ -659,75 +696,6 @@ async function handleCreateProject() {
   }
 }
 
-// ============================================
-// Firebase Config Dialog
-// ============================================
-function openFirebaseDialog() {
-  const dialog = document.getElementById('firebaseDialog');
-  dialog.style.display = '';
-
-  // Pre-fill from localStorage if available
-  const saved = localStorage.getItem('firebase_config');
-  if (saved) {
-    try {
-      const cfg = JSON.parse(saved);
-      document.getElementById('fbApiKey').value = cfg.apiKey || '';
-      document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
-      document.getElementById('fbProjectId').value = cfg.projectId || '';
-      document.getElementById('fbStorageBucket').value = cfg.storageBucket || '';
-      document.getElementById('fbMessagingSenderId').value = cfg.messagingSenderId || '';
-      document.getElementById('fbAppId').value = cfg.appId || '';
-    } catch (e) { /* ignore */ }
-  }
-
-  // Show disconnect button if connected
-  document.getElementById('fbDisconnectBtn').style.display = firebaseReady ? '' : 'none';
-}
-
-function closeFirebaseDialog() {
-  document.getElementById('firebaseDialog').style.display = 'none';
-}
-
-function handleFirebaseConnect() {
-  const config = {
-    apiKey: document.getElementById('fbApiKey').value.trim(),
-    authDomain: document.getElementById('fbAuthDomain').value.trim(),
-    projectId: document.getElementById('fbProjectId').value.trim(),
-    storageBucket: document.getElementById('fbStorageBucket').value.trim(),
-    messagingSenderId: document.getElementById('fbMessagingSenderId').value.trim(),
-    appId: document.getElementById('fbAppId').value.trim()
-  };
-
-  if (!config.apiKey || !config.projectId) {
-    showToast('API Key 和 Project ID 為必填', 'warning');
-    return;
-  }
-
-  // Auto-fill authDomain if empty
-  if (!config.authDomain) {
-    config.authDomain = config.projectId + '.firebaseapp.com';
-  }
-
-  setFirebaseConfig(config);
-  closeFirebaseDialog();
-  showToast(`Firebase 已連線: ${config.projectId}`, 'success');
-}
-
-function handleFirebaseDisconnect() {
-  localStorage.removeItem('firebase_config');
-  if (firebase.apps.length > 0) {
-    firebase.app().delete().then(() => {
-      db = null;
-      firebaseReady = false;
-      updateFirebaseStatus(false);
-      const select = document.getElementById('projectSelect');
-      select.innerHTML = '<option value="">— 請先連線 Firebase —</option>';
-      selectedProjectId = '';
-      closeFirebaseDialog();
-      showToast('Firebase 已中斷連線', 'info');
-    });
-  }
-}
 
 // ============================================
 // AI Connection Test
