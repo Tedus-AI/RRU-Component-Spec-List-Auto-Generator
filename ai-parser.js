@@ -50,11 +50,11 @@ const AI_PROVIDERS = {
 
   openrouter: {
     name: 'OpenRouter',
-    model: 'google/gemini-2.5-flash:free',
+    model: 'qwen/qwen2.5-vl-72b-instruct:free',
     free: true,
     getKeyUrl: 'https://openrouter.ai/keys',
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
-      const model = modelOverride || localStorage.getItem('openrouter_model') || 'google/gemini-2.5-flash:free';
+      const model = modelOverride || localStorage.getItem('openrouter_model') || 'qwen/qwen2.5-vl-72b-instruct:free';
       const content = typeof userContent === 'string'
         ? userContent
         : userContent;
