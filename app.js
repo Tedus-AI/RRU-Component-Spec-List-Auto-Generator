@@ -52,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load saved API key
-  const savedProvider = sessionStorage.getItem('ai_provider') || 'gemini';
+  const savedProvider = localStorage.getItem('ai_provider') || 'gemini';
   currentProvider = savedProvider;
   document.getElementById('providerSelect').value = savedProvider;
   updateProviderUI();
 
-  const savedKey = sessionStorage.getItem(`apiKey_${savedProvider}`);
+  const savedKey = localStorage.getItem(`apiKey_${savedProvider}`);
   if (savedKey) {
     document.getElementById('apiKeyInput').value = savedKey;
   }
@@ -70,10 +70,10 @@ function setupEventListeners() {
   // Provider select
   document.getElementById('providerSelect').addEventListener('change', (e) => {
     currentProvider = e.target.value;
-    sessionStorage.setItem('ai_provider', currentProvider);
+    localStorage.setItem('ai_provider', currentProvider);
     updateProviderUI();
     // Load saved key for this provider
-    const savedKey = sessionStorage.getItem(`apiKey_${currentProvider}`);
+    const savedKey = localStorage.getItem(`apiKey_${currentProvider}`);
     document.getElementById('apiKeyInput').value = savedKey || '';
   });
 
@@ -81,13 +81,13 @@ function setupEventListeners() {
   document.getElementById('apiKeyInput').addEventListener('change', (e) => {
     const key = e.target.value.trim();
     if (key) {
-      sessionStorage.setItem(`apiKey_${currentProvider}`, key);
+      localStorage.setItem(`apiKey_${currentProvider}`, key);
     }
   });
 
   // OpenRouter model select
   document.getElementById('openrouterModelSelect').addEventListener('change', (e) => {
-    sessionStorage.setItem('openrouter_model', e.target.value);
+    localStorage.setItem('openrouter_model', e.target.value);
   });
 
   // Project select
@@ -412,7 +412,7 @@ async function handleAIParse() {
   // 綜合所有輸入來源（傳入完整 imageList）
   const content = buildCombinedContent(text, imageList, pdfBase64);
 
-  const apiKey = sessionStorage.getItem(`apiKey_${currentProvider}`);
+  const apiKey = localStorage.getItem(`apiKey_${currentProvider}`);
   if (!apiKey) { showToast('請先輸入 API Key', 'warning'); return; }
 
   showLoading('AI 解析中...');
@@ -773,7 +773,7 @@ async function handleTestConnection() {
   if (!apiKey) { showToast('請輸入 API Key', 'warning'); return; }
 
   // Save key
-  sessionStorage.setItem(`apiKey_${currentProvider}`, apiKey);
+  localStorage.setItem(`apiKey_${currentProvider}`, apiKey);
 
   const statusEl = document.getElementById('aiStatus');
   const dot = statusEl.querySelector('.status-dot');
