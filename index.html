@@ -137,23 +137,33 @@
 
         <!-- Text Input -->
         <div class="tab-content active" id="tabText">
-          <textarea id="textInput" placeholder="將 datasheet 內容貼到此處...&#10;&#10;範例：&#10;Max Power Dissipation: 52.99W&#10;Thermal Resistance (θJC): 1.5 °C/W&#10;Maximum Junction Temperature: 200°C&#10;Package: 10mm x 10mm"></textarea>
+          <div class="input-header">
+            <button class="btn btn-sm btn-ghost clear-btn" onclick="clearTextInput()" id="clearTextBtn" style="display:none">✕ 清除文字</button>
+          </div>
+          <textarea id="textInput" placeholder="將 datasheet 內容貼到此處...&#10;可搭配截圖一起使用，例如：&#10;「圖1 是 Thermal Resistance 表格，圖2 是 Absolute Maximum Ratings」&#10;&#10;範例：&#10;Max Power Dissipation: 52.99W&#10;Thermal Resistance (θJC): 1.5 °C/W&#10;Maximum Junction Temperature: 200°C&#10;Package: 10mm x 10mm"></textarea>
         </div>
 
-        <!-- Image Input -->
+        <!-- Image Input (支援多張) -->
         <div class="tab-content" id="tabImage">
+          <div class="input-header">
+            <span class="input-count" id="imageCount"></span>
+            <button class="btn btn-sm btn-ghost clear-btn" onclick="clearImageInput()" id="clearImageBtn" style="display:none">✕ 清除全部截圖</button>
+          </div>
           <div class="drop-zone" id="imageDropZone">
             <div class="drop-zone-content">
               <span class="drop-icon">🖼</span>
-              <p>點擊上傳或直接 Ctrl+V 貼上截圖</p>
-              <input type="file" id="imageFileInput" accept="image/*" style="display:none">
+              <p>點擊上傳或直接 Ctrl+V 貼上截圖（可多張）</p>
+              <input type="file" id="imageFileInput" accept="image/*" multiple style="display:none">
             </div>
-            <img id="imagePreview" class="image-preview" style="display:none">
           </div>
+          <div class="image-gallery" id="imageGallery"></div>
         </div>
 
         <!-- PDF Input -->
         <div class="tab-content" id="tabPdf">
+          <div class="input-header">
+            <button class="btn btn-sm btn-ghost clear-btn" onclick="clearPdfInput()" id="clearPdfBtn" style="display:none">✕ 清除 PDF</button>
+          </div>
           <div class="drop-zone" id="pdfDropZone">
             <div class="drop-zone-content">
               <span class="drop-icon">📄</span>
