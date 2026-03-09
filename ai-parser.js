@@ -78,7 +78,9 @@ const AI_PROVIDERS = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'OpenRouter API error');
-      return data.choices[0].message.content;
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) throw new Error('OpenRouter 回傳空內容，可能是模型不支援此輸入格式或額度已滿，請換一個模型試試');
+      return text;
     }
   },
 
@@ -108,7 +110,9 @@ const AI_PROVIDERS = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Groq API error');
-      return data.choices[0].message.content;
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) throw new Error('Groq 回傳空內容，請重試或換一個 Provider');
+      return text;
     }
   },
 
@@ -315,6 +319,8 @@ async function callAI(userContent, componentType) {
     : undefined;
 
   const rawText = await provider.call(apiKey, systemPrompt, userContent, modelOverride);
+
+  if (!rawText) throw new Error('AI 回傳空內容，請重試或換一個 Provider');
 
   // Parse JSON — 更強健的提取邏輯
   let cleaned = rawText.replace(/```json\s*|```\s*/g, '').trim();
