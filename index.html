@@ -46,9 +46,9 @@
           <div class="field-group" id="openrouterModelGroup" style="display:none">
             <label>OpenRouter Model</label>
             <select id="openrouterModelSelect">
-              <option value="google/gemma-3-27b-it:free">Gemma 3 27B (預設，穩定)</option>
-              <option value="qwen/qwen3-vl-235b-a22b-thinking">Qwen3 VL 235B (最強)</option>
+              <option value="qwen/qwen3-vl-235b-a22b-thinking">Qwen3 VL 235B (預設，最強)</option>
               <option value="qwen/qwen3-vl-30b-a3b-thinking">Qwen3 VL 30B</option>
+              <option value="google/gemma-3-27b-it:free">Gemma 3 27B</option>
               <option value="google/gemma-3-12b-it:free">Gemma 3 12B (輕量)</option>
             </select>
           </div>
@@ -254,6 +254,19 @@
         </button>
         <div class="write-log" id="writeLog" style="display:none"></div>
       </div>
+    </section>
+
+    <!-- Jump to Evaluation Tool -->
+    <section class="panel step-panel" style="text-align:center; padding: 2rem;">
+      <a href="https://tedus-ai.github.io/5G-RRU-Quick-Volume-Evaluation-Tool/"
+         target="_blank"
+         class="btn btn-lg"
+         style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-size: 1.1rem; padding: 0.9rem 2rem; border: none; border-radius: 8px; text-decoration: none; display: inline-block; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: transform 0.2s, box-shadow 0.2s;"
+         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102,126,234,0.5)'"
+         onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 15px rgba(102,126,234,0.4)'">
+        🚀 前往 5G RRU Quick Volume Evaluation Tool
+      </a>
+      <p style="color: #888; margin-top: 0.8rem; font-size: 0.9rem;">寫入 Firebase 後，可直接前往評估工具載入專案進行即時計算</p>
     </section>
   </main>
 
