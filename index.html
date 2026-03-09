@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RRU 元件規格清單產生器</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-mark"></div>
+      <h1>元件規格清單產生器</h1>
+      <span class="version-badge">v1.0</span>
+    </div>
+    <div class="header-right">
+      <div class="firebase-status" id="firebaseStatus">
+        <span class="status-dot offline"></span>
+        <span class="status-text">Firebase 未連線</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- AI Provider Settings Panel -->
+    <section class="panel ai-settings-panel" id="aiSettingsPanel">
+      <div class="panel-header" onclick="togglePanel('aiSettingsPanel')">
+        <h2><span class="panel-icon">⚙</span> AI Provider 設定</h2>
+        <span class="collapse-icon">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="provider-row">
+          <div class="field-group">
+            <label>Provider</label>
+            <select id="providerSelect">
+              <option value="gemini" selected>Google Gemini (免費)</option>
+              <option value="openrouter">OpenRouter (免費額度)</option>
+              <option value="groq">Groq (免費)</option>
+              <option value="anthropic">Anthropic Claude (付費)</option>
+            </select>
+          </div>
+          <div class="field-group" id="openrouterModelGroup" style="display:none">
+            <label>OpenRouter Model</label>
+            <select id="openrouterModelSelect">
+              <option value="google/gemma-3n-e4b-it:free">Gemma 3n (預設)</option>
+              <option value="nvidia/nemotron-nano-9b-v2:free">Nemotron Nano 9B</option>
+              <option value="stepfun/step-3.5-flash:free">Step 3.5 Flash</option>
+              <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B</option>
+              <option value="openrouter/free">Auto (最佳免費)</option>
+            </select>
+          </div>
+          <div class="field-group flex-grow">
+            <label>API Key <a href="#" id="getKeyLink" target="_blank" class="key-link">取得 Key →</a></label>
+            <div class="key-input-row">
+              <input type="password" id="apiKeyInput" placeholder="輸入 API Key...">
+              <button class="btn btn-sm" id="testConnectionBtn" onclick="handleTestConnection()">測試連線</button>
+            </div>
+          </div>
+          <div class="ai-status" id="aiStatus">
+            <span class="status-dot offline"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 1: Select Project -->
+    <section class="panel step-panel">
+      <div class="panel-header">
+        <h2><span class="step-number">1</span> 選擇專案</h2>
+      </div>
+      <div class="panel-body">
+        <div class="project-row">
+          <div class="field-group flex-grow">
+            <label>專案</label>
+            <select id="projectSelect">
+              <option value="">— 請先連線 Firebase —</option>
+            </select>
+          </div>
+          <button class="btn btn-outline" onclick="handleNewProject()">+ 新增專案</button>
+        </div>
+        <!-- New Project Form (hidden by default) -->
+        <div class="new-project-form" id="newProjectForm" style="display:none">
+          <div class="field-group">
+            <label>專案 ID</label>
+            <input type="text" id="newProjectId" placeholder="例如: RRU_5G_2025Q1">
+          </div>
+          <div class="field-group">
+            <label>專案名稱</label>
+            <input type="text" id="newProjectName" placeholder="例如: 5G RRU 2025 Q1">
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary btn-sm" onclick="handleCreateProject()">建立</button>
+            <button class="btn btn-sm" onclick="hideNewProjectForm()">取消</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Component Type -->
+    <section class="panel step-panel">
+      <div class="panel-header">
+        <h2><span class="step-number">2</span> 元件類型</h2>
+      </div>
+      <div class="panel-body">
+        <div class="type-selector">
+          <button class="type-btn active" data-type="RF" onclick="selectComponentType('RF')">
+            <span class="type-icon">📡</span>
+            <span class="type-label">RF Component</span>
+          </button>
+          <button class="type-btn" data-type="Digital" onclick="selectComponentType('Digital')">
+            <span class="type-icon">🔲</span>
+            <span class="type-label">Digital Component</span>
+          </button>
+          <button class="type-btn" data-type="PWR" onclick="selectComponentType('PWR')">
+            <span class="type-icon">⚡</span>
+            <span class="type-label">PWR Component</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: Input Datasheet -->
+    <section class="panel step-panel">
+      <div class="panel-header">
+        <h2><span class="step-number">3</span> 輸入 Datasheet</h2>
+      </div>
+      <div class="panel-body">
+        <div class="input-tabs">
+          <button class="tab-btn active" data-tab="text" onclick="selectInputTab('text')">📝 貼上文字</button>
+          <button class="tab-btn" data-tab="image" onclick="selectInputTab('image')">🖼 貼上截圖</button>
+          <button class="tab-btn" data-tab="pdf" onclick="selectInputTab('pdf')">📄 上傳 PDF</button>
+        </div>
+
+        <!-- Text Input -->
+        <div class="tab-content active" id="tabText">
+          <textarea id="textInput" placeholder="將 datasheet 內容貼到此處...&#10;&#10;範例：&#10;Max Power Dissipation: 52.99W&#10;Thermal Resistance (θJC): 1.5 °C/W&#10;Maximum Junction Temperature: 200°C&#10;Package: 10mm x 10mm"></textarea>
+        </div>
+
+        <!-- Image Input -->
+        <div class="tab-content" id="tabImage">
+          <div class="drop-zone" id="imageDropZone">
+            <div class="drop-zone-content">
+              <span class="drop-icon">🖼</span>
+              <p>點擊上傳或直接 Ctrl+V 貼上截圖</p>
+              <input type="file" id="imageFileInput" accept="image/*" style="display:none">
+            </div>
+            <img id="imagePreview" class="image-preview" style="display:none">
+          </div>
+        </div>
+
+        <!-- PDF Input -->
+        <div class="tab-content" id="tabPdf">
+          <div class="drop-zone" id="pdfDropZone">
+            <div class="drop-zone-content">
+              <span class="drop-icon">📄</span>
+              <p>點擊上傳 PDF 檔案</p>
+              <input type="file" id="pdfFileInput" accept=".pdf" style="display:none">
+            </div>
+            <div id="pdfInfo" class="pdf-info" style="display:none"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="parseBtn" onclick="handleAIParse()">
+          <span class="btn-icon">🤖</span> AI 解析
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 4: Review Results -->
+    <section class="panel step-panel" id="step4Panel">
+      <div class="panel-header">
+        <h2><span class="step-number">4</span> 確認解析結果</h2>
+        <span class="multi-detect" id="multiDetect" style="display:none"></span>
+      </div>
+      <div class="panel-body">
+        <div class="result-table-wrap" id="resultTableWrap">
+          <p class="placeholder-text">尚未解析，請先輸入 datasheet 並點擊「AI 解析」</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 5: Staging List -->
+    <section class="panel step-panel">
+      <div class="panel-header">
+        <h2><span class="step-number">5</span> 加入暫存清單</h2>
+      </div>
+      <div class="panel-body">
+        <button class="btn btn-primary" id="addToListBtn" onclick="handleAddToList()" disabled>
+          <span class="btn-icon">➕</span> 加入清單
+        </button>
+
+        <div class="staging-summary" id="stagingSummary">
+          <div class="staging-counts">
+            <span class="staging-badge rf">RF: <strong id="rfCount">0</strong> 筆</span>
+            <span class="staging-badge digital">Digital: <strong id="digitalCount">0</strong> 筆</span>
+            <span class="staging-badge pwr">PWR: <strong id="pwrCount">0</strong> 筆</span>
+          </div>
+        </div>
+
+        <div class="staging-list" id="stagingList" style="display:none">
+          <table class="data-table staging-table">
+            <thead>
+              <tr>
+                <th>類型</th>
+                <th>Component</th>
+                <th>Power(W)</th>
+                <th>Limit(°C)</th>
+                <th>R_jc</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="stagingTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 6: Write to Firebase -->
+    <section class="panel step-panel">
+      <div class="panel-header">
+        <h2><span class="step-number">6</span> 寫入 Firebase</h2>
+      </div>
+      <div class="panel-body">
+        <div class="write-targets">
+          <label class="checkbox-label">
+            <input type="checkbox" id="writeLibrary" checked>
+            <span>寫入 <strong id="libraryTarget">rf_library</strong>（元件資料庫）</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="writeProject" checked>
+            <span>寫入 <strong id="projectTarget">projects/{id}/rf_data</strong>（此專案清單）</span>
+          </label>
+        </div>
+        <button class="btn btn-success btn-lg" id="writeFirebaseBtn" onclick="handleWriteFirebase()" disabled>
+          ✅ 確認全部寫入 Firebase
+        </button>
+        <div class="write-log" id="writeLog" style="display:none"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay" style="display:none">
+    <div class="loading-spinner"></div>
+    <p class="loading-text" id="loadingText">解析中...</p>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- App Scripts -->
+  <script src="firebase-config.js"></script>
+  <script src="ai-parser.js"></script>
+  <script src="firebase-writer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
