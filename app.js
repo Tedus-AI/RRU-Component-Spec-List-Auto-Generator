@@ -10,7 +10,8 @@ let currentInputTab = 'text';
 let parsedRecords = [];       // Current AI parse results (array of records)
 let currentRecordIndex = 0;   // For multi-component navigation
 let stagingList = [];          // { type, record }[]
-let imageBase64 = null;
+let imageList = [];           // [{ base64, mimeType }]  — 支援多張截圖
+let imageBase64 = null;       // 保留向後相容（指向第一張）
 let imageMimeType = null;
 let pdfBase64 = null;
 
@@ -221,15 +222,18 @@ function selectInputTab(tab) {
 function handleImageDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) {
-    loadImageFile(file);
+  for (const file of e.dataTransfer.files) {
+    if (file.type.startsWith('image/')) {
+      loadImageFile(file);
+    }
   }
 }
 
 function handleImageFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) loadImageFile(file);
+  for (const file of e.target.files) {
+    if (file.type.startsWith('image/')) loadImageFile(file);
+  }
+  e.target.value = ''; // 允許重複選擇同一檔案
 }
 
 function handlePaste(e) {
@@ -247,19 +251,53 @@ function handlePaste(e) {
 }
 
 function loadImageFile(file) {
-  imageMimeType = file.type;
   const reader = new FileReader();
   reader.onload = (e) => {
     const dataUrl = e.target.result;
-    imageBase64 = dataUrl.split(',')[1];
+    const base64 = dataUrl.split(',')[1];
+    imageList.push({ base64, mimeType: file.type, dataUrl });
 
-    const preview = document.getElementById('imagePreview');
-    preview.src = dataUrl;
-    preview.style.display = 'block';
-    document.querySelector('#imageDropZone .drop-zone-content').style.display = 'none';
+    // 保持向後相容
+    imageBase64 = imageList[0].base64;
+    imageMimeType = imageList[0].mimeType;
+
+    renderImageGallery();
     updateInputSummary();
   };
   reader.readAsDataURL(file);
+}
+
+function renderImageGallery() {
+  const gallery = document.getElementById('imageGallery');
+  const countEl = document.getElementById('imageCount');
+  const clearBtn = document.getElementById('clearImageBtn');
+
+  if (imageList.length === 0) {
+    gallery.innerHTML = '';
+    countEl.textContent = '';
+    clearBtn.style.display = 'none';
+    document.querySelector('#imageDropZone .drop-zone-content').style.display = '';
+    return;
+  }
+
+  clearBtn.style.display = '';
+  countEl.textContent = `共 ${imageList.length} 張截圖`;
+
+  gallery.innerHTML = imageList.map((img, i) => `
+    <div class="gallery-item">
+      <div class="gallery-label">圖${i + 1}</div>
+      <img src="${img.dataUrl}" class="gallery-thumb" alt="圖${i + 1}">
+      <button class="gallery-remove" onclick="removeImage(${i})" title="移除">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeImage(index) {
+  imageList.splice(index, 1);
+  imageBase64 = imageList.length > 0 ? imageList[0].base64 : null;
+  imageMimeType = imageList.length > 0 ? imageList[0].mimeType : null;
+  renderImageGallery();
+  updateInputSummary();
 }
 
 // ============================================
@@ -295,14 +333,44 @@ function loadPdfFile(file) {
 }
 
 // ============================================
+// Clear Functions — 清除各輸入來源
+// ============================================
+function clearTextInput() {
+  document.getElementById('textInput').value = '';
+  document.getElementById('clearTextBtn').style.display = 'none';
+  updateInputSummary();
+}
+
+function clearImageInput() {
+  imageList = [];
+  imageBase64 = null;
+  imageMimeType = null;
+  renderImageGallery();
+  updateInputSummary();
+}
+
+function clearPdfInput() {
+  pdfBase64 = null;
+  document.getElementById('pdfInfo').style.display = 'none';
+  document.getElementById('pdfInfo').textContent = '';
+  document.querySelector('#pdfDropZone .drop-zone-content').style.display = '';
+  document.getElementById('clearPdfBtn').style.display = 'none';
+  updateInputSummary();
+}
+
+// ============================================
 // Input Summary — 顯示哪些輸入來源有資料
 // ============================================
 function updateInputSummary() {
   const text = document.getElementById('textInput').value.trim();
   const hasText = !!text;
-  const hasImage = !!imageBase64;
+  const hasImage = imageList.length > 0;
   const hasPdf = !!pdfBase64;
   const count = (hasText ? 1 : 0) + (hasImage ? 1 : 0) + (hasPdf ? 1 : 0);
+
+  // 更新清除按鈕顯示
+  document.getElementById('clearTextBtn').style.display = hasText ? '' : 'none';
+  document.getElementById('clearPdfBtn').style.display = hasPdf ? '' : 'none';
 
   // 更新 tab 按鈕上的 has-data 標記
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -317,7 +385,7 @@ function updateInputSummary() {
   if (count >= 2) {
     const labels = [];
     if (hasText) labels.push('文字');
-    if (hasImage) labels.push('截圖');
+    if (hasImage) labels.push(`截圖 x${imageList.length}`);
     if (hasPdf) labels.push('PDF');
     tags.innerHTML = labels.map(l => `<span class="summary-tag">${l}</span>`).join('');
     summary.style.display = '';
@@ -333,7 +401,7 @@ async function handleAIParse() {
   // 收集所有有資料的輸入來源
   const text = document.getElementById('textInput').value.trim();
   const hasText = !!text;
-  const hasImage = !!imageBase64;
+  const hasImage = imageList.length > 0;
   const hasPdf = !!pdfBase64;
 
   if (!hasText && !hasImage && !hasPdf) {
@@ -341,8 +409,8 @@ async function handleAIParse() {
     return;
   }
 
-  // 綜合所有輸入來源
-  const content = buildCombinedContent(text, imageBase64, imageMimeType, pdfBase64);
+  // 綜合所有輸入來源（傳入完整 imageList）
+  const content = buildCombinedContent(text, imageList, pdfBase64);
 
   const apiKey = sessionStorage.getItem(`apiKey_${currentProvider}`);
   if (!apiKey) { showToast('請先輸入 API Key', 'warning'); return; }

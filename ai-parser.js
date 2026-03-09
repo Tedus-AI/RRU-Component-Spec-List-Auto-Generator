@@ -29,7 +29,11 @@ const AI_PROVIDERS = {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Gemini API error');
-      return data.candidates[0].content.parts[0].text;
+      // Gemini 2.5 思考模型可能回傳多個 parts（thought + response）
+      // 取最後一個非 thought 的 text part
+      const responseParts = data.candidates[0].content.parts;
+      const textParts = responseParts.filter(p => p.text && !p.thought);
+      return textParts.length > 0 ? textParts[textParts.length - 1].text : responseParts[responseParts.length - 1].text;
     }
   },
 
@@ -169,10 +173,11 @@ function buildSystemPrompt(componentType) {
 }
 
 // ---- Combined Content Builder ----
-// 綜合所有有資料的輸入（文字+截圖+PDF）一起送給 AI
-function buildCombinedContent(text, imgBase64, imgMimeType, pdfB64) {
+// 綜合所有有資料的輸入（文字+多張截圖+PDF）一起送給 AI
+// images: [{ base64, mimeType }]
+function buildCombinedContent(text, images, pdfB64) {
   const hasText = !!text;
-  const hasImage = !!imgBase64;
+  const hasImage = images && images.length > 0;
   const hasPdf = !!pdfB64;
 
   // 純文字 → 直接回傳字串
@@ -180,15 +185,25 @@ function buildCombinedContent(text, imgBase64, imgMimeType, pdfB64) {
     return text;
   }
 
+  // 建立圖片編號提示（讓 AI 知道圖片順序）
+  const imgIntro = hasImage && images.length > 1
+    ? `共有 ${images.length} 張截圖（圖1 ~ 圖${images.length}），請依序參考。\n`
+    : '';
+
   // 有圖片或 PDF → 需要多模態格式
   if (currentProvider === 'gemini') {
     const parts = [];
-    if (hasImage) parts.push({ inlineData: { mimeType: imgMimeType, data: imgBase64 } });
+    if (hasImage) {
+      images.forEach((img, i) => {
+        parts.push({ text: `[圖${i + 1}]` });
+        parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+      });
+    }
     if (hasPdf) parts.push({ inlineData: { mimeType: 'application/pdf', data: pdfB64 } });
     if (hasText) {
-      parts.push({ text: `以下是使用者的補充說明，請一併參考：\n${text}` });
+      parts.push({ text: `${imgIntro}以下是使用者的補充說明，請一併參考：\n${text}` });
     } else {
-      parts.push({ text: '請從以上 datasheet 資料中抽取元件熱參數。' });
+      parts.push({ text: `${imgIntro}請從以上 datasheet 資料中抽取元件熱參數。` });
     }
     return parts;
   }
@@ -196,15 +211,18 @@ function buildCombinedContent(text, imgBase64, imgMimeType, pdfB64) {
   if (currentProvider === 'anthropic') {
     const content = [];
     if (hasImage) {
-      content.push({ type: 'image', source: { type: 'base64', media_type: imgMimeType, data: imgBase64 } });
+      images.forEach((img, i) => {
+        content.push({ type: 'text', text: `[圖${i + 1}]` });
+        content.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
+      });
     }
     if (hasPdf) {
       content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfB64 } });
     }
     if (hasText) {
-      content.push({ type: 'text', text: `以下是使用者的補充說明，請一併參考：\n${text}` });
+      content.push({ type: 'text', text: `${imgIntro}以下是使用者的補充說明，請一併參考：\n${text}` });
     } else {
-      content.push({ type: 'text', text: '請從以上 datasheet 資料中抽取元件熱參數。' });
+      content.push({ type: 'text', text: `${imgIntro}請從以上 datasheet 資料中抽取元件熱參數。` });
     }
     return content;
   }
@@ -212,9 +230,12 @@ function buildCombinedContent(text, imgBase64, imgMimeType, pdfB64) {
   // OpenRouter / Groq (OpenAI format) — PDF 不支援，僅圖片+文字
   const content = [];
   if (hasImage) {
-    content.push({ type: 'image_url', image_url: { url: `data:${imgMimeType};base64,${imgBase64}` } });
+    images.forEach((img, i) => {
+      content.push({ type: 'text', text: `[圖${i + 1}]` });
+      content.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
+    });
   }
-  let textPart = '';
+  let textPart = imgIntro;
   if (hasPdf) textPart += '[PDF content — 此 Provider 不支援直接 PDF 解析，請改用文字或截圖輸入]\n\n';
   if (hasText) {
     textPart += hasImage || hasPdf ? `以下是使用者的補充說明，請一併參考：\n${text}` : text;
@@ -284,8 +305,14 @@ async function callAI(userContent, componentType) {
 
   const rawText = await provider.call(apiKey, systemPrompt, userContent, modelOverride);
 
-  // Parse JSON (strip markdown code fences if present)
-  const cleaned = rawText.replace(/```json\s*|```\s*/g, '').trim();
+  // Parse JSON — 更強健的提取邏輯
+  let cleaned = rawText.replace(/```json\s*|```\s*/g, '').trim();
+  // 嘗試找到 JSON 的起始位置（[ 或 {）
+  const jsonStart = cleaned.search(/[\[{]/);
+  if (jsonStart > 0) cleaned = cleaned.slice(jsonStart);
+  // 找到最後一個 ] 或 } 作為結尾
+  const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
+  if (lastBracket > 0) cleaned = cleaned.slice(0, lastBracket + 1);
   const parsed = JSON.parse(cleaned);
 
   // Normalize to array
