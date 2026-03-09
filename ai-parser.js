@@ -23,15 +23,26 @@ const AI_PROVIDERS = {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ role: 'user', parts }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 2000 }
+            generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
           })
         }
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || 'Gemini API error');
+      if (!res.ok) {
+        const msg = data.error?.message || 'Gemini API error';
+        if (res.status === 429 || msg.includes('quota') || msg.includes('rate')) {
+          throw new Error('Gemini 免費額度已達上限，請等待約 1 分鐘後再試');
+        }
+        throw new Error(msg);
+      }
+      // 檢查回應是否被截斷
+      const candidate = data.candidates[0];
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        throw new Error('AI 回應被截斷（內容過長），請減少輸入圖片數量或文字量後重試');
+      }
       // Gemini 2.5 思考模型可能回傳多個 parts（thought + response）
       // 取最後一個非 thought 的 text part
-      const responseParts = data.candidates[0].content.parts;
+      const responseParts = candidate.content.parts;
       const textParts = responseParts.filter(p => p.text && !p.thought);
       return textParts.length > 0 ? textParts[textParts.length - 1].text : responseParts[responseParts.length - 1].text;
     }
@@ -313,7 +324,13 @@ async function callAI(userContent, componentType) {
   // 找到最後一個 ] 或 } 作為結尾
   const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
   if (lastBracket > 0) cleaned = cleaned.slice(0, lastBracket + 1);
-  const parsed = JSON.parse(cleaned);
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (jsonErr) {
+    console.error('AI raw response:', rawText);
+    throw new Error('AI 回傳的 JSON 格式不正確，請重試一次。若持續失敗，可嘗試減少圖片數量。');
+  }
 
   // Normalize to array
   return Array.isArray(parsed) ? parsed : [parsed];
