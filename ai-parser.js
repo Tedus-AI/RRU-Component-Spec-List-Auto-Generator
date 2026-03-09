@@ -50,11 +50,11 @@ const AI_PROVIDERS = {
 
   openrouter: {
     name: 'OpenRouter',
-    model: 'google/gemma-3n-e4b-it:free',
+    model: 'google/gemini-2.5-flash:free',
     free: true,
     getKeyUrl: 'https://openrouter.ai/keys',
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
-      const model = modelOverride || localStorage.getItem('openrouter_model') || 'google/gemma-3n-e4b-it:free';
+      const model = modelOverride || localStorage.getItem('openrouter_model') || 'google/gemini-2.5-flash:free';
       const content = typeof userContent === 'string'
         ? userContent
         : userContent;
@@ -84,11 +84,11 @@ const AI_PROVIDERS = {
 
   groq: {
     name: 'Groq',
-    model: 'llama-3.3-70b-versatile',
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     free: true,
     getKeyUrl: 'https://console.groq.com/keys',
     call: async (apiKey, systemPrompt, userContent) => {
-      const content = typeof userContent === 'string' ? userContent : JSON.stringify(userContent);
+      const content = typeof userContent === 'string' ? userContent : userContent;
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -97,7 +97,7 @@ const AI_PROVIDERS = {
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           max_tokens: 2000,
           temperature: 0.1,
           messages: [
