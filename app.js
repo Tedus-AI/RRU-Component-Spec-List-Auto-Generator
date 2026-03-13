@@ -982,15 +982,20 @@ function renderProjectEditTable() {
 
     html += '<tr>';
     html += `<td style="font-weight:500">${field.label}</td>`;
-    html += `<td class="cell-editable" onclick="editProjectCell(this, '${field.key}', '${field.type}')" data-field="${field.key}">`;
-
-    if (field.type === 'enum') {
-      html += `<span class="value-display">${value ?? '<span class="value-null">null</span>'}</span>`;
+    if (field.type === 'enum' && field.options) {
+      html += `<td data-field="${field.key}">`;
+      html += `<select class="cell-select" onchange="editingComponent.record['${field.key}']=this.value; renderProjectEditTable()">`;
+      field.options.forEach(opt => {
+        const selected = opt === value ? 'selected' : '';
+        html += `<option value="${opt}" ${selected}>${opt}</option>`;
+      });
+      html += '</select>';
+      html += '</td>';
     } else {
+      html += `<td class="cell-editable" onclick="editProjectCell(this, '${field.key}', '${field.type}')" data-field="${field.key}">`;
       html += `<span class="value-display">${value !== null && value !== undefined ? value : '<span class="value-null">null</span>'}</span>`;
+      html += '</td>';
     }
-
-    html += '</td>';
     html += `<td>${status}</td>`;
     html += '</tr>';
   }
@@ -1005,55 +1010,32 @@ function editProjectCell(td, fieldKey, fieldType) {
 
   const record = editingComponent.record;
   const currentValue = record[fieldKey];
-  const field = FIELDS.find(f => f.key === fieldKey);
 
-  if (fieldType === 'enum' && field.options) {
-    const select = document.createElement('select');
-    select.className = 'cell-select';
-    field.options.forEach(opt => {
-      const option = document.createElement('option');
-      option.value = opt;
-      option.textContent = opt;
-      if (opt === currentValue) option.selected = true;
-      select.appendChild(option);
-    });
+  const input = document.createElement('input');
+  input.className = 'cell-input';
+  input.type = fieldType === 'number' ? 'number' : 'text';
+  input.step = 'any';
+  input.value = currentValue ?? '';
 
-    select.addEventListener('change', () => {
-      record[fieldKey] = select.value;
-      renderProjectEditTable();
-    });
-    select.addEventListener('blur', () => renderProjectEditTable());
+  const commit = () => {
+    let newVal = input.value.trim();
+    if (fieldType === 'number') {
+      newVal = newVal === '' ? null : parseFloat(newVal);
+    }
+    record[fieldKey] = newVal;
+    renderProjectEditTable();
+  };
 
-    td.innerHTML = '';
-    td.appendChild(select);
-    select.focus();
-  } else {
-    const input = document.createElement('input');
-    input.className = 'cell-input';
-    input.type = fieldType === 'number' ? 'number' : 'text';
-    input.step = 'any';
-    input.value = currentValue ?? '';
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commit();
+    if (e.key === 'Escape') renderProjectEditTable();
+  });
+  input.addEventListener('blur', commit);
 
-    const commit = () => {
-      let newVal = input.value.trim();
-      if (fieldType === 'number') {
-        newVal = newVal === '' ? null : parseFloat(newVal);
-      }
-      record[fieldKey] = newVal;
-      renderProjectEditTable();
-    };
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') commit();
-      if (e.key === 'Escape') renderProjectEditTable();
-    });
-    input.addEventListener('blur', commit);
-
-    td.innerHTML = '';
-    td.appendChild(input);
-    input.focus();
-    input.select();
-  }
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
 }
 
 async function saveProjectEdit() {
