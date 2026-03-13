@@ -38,6 +38,22 @@ async function fetchProjects() {
   return projects;
 }
 
+// ---- 讀取單一專案完整資料 ----
+async function fetchProjectData(projectId) {
+  if (!db) throw new Error('Firebase 未連線');
+  const doc = await db.collection('projects').doc(projectId).get();
+  if (!doc.exists) throw new Error(`專案 "${projectId}" 不存在`);
+  return doc.data();
+}
+
+// ---- 更新專案中單一元件資料 ----
+async function updateProjectComponent(projectId, fieldName, dataArray) {
+  if (!db) throw new Error('Firebase 未連線');
+  await db.collection('projects').doc(projectId).update({
+    [fieldName]: dataArray
+  });
+}
+
 // ---- 新增專案 ----
 async function createProject(projectId, projectName) {
   if (!db) throw new Error('Firebase 未連線');
