@@ -80,6 +80,7 @@
             </select>
           </div>
           <button class="btn btn-outline" onclick="handleNewProject()">+ 新增專案</button>
+          <button class="btn btn-primary btn-sm" id="switchToAddBtn" style="display:none" onclick="switchToAddMode()">➕ 新增元件</button>
         </div>
         <!-- New Project Form (hidden by default) -->
         <div class="new-project-form" id="newProjectForm" style="display:none">
@@ -99,8 +100,43 @@
       </div>
     </section>
 
+    <!-- Existing Project Data (shown when existing project selected) -->
+    <section class="panel step-panel" id="projectDataPanel" style="display:none">
+      <div class="panel-header">
+        <h2><span class="step-number">📋</span> 專案元件清單</h2>
+        <span class="project-data-count" id="projectDataCount"></span>
+      </div>
+      <div class="panel-body">
+        <div class="project-data-tabs" id="projectDataTabs">
+          <button class="project-data-tab active" data-type="RF" onclick="selectProjectDataTab('RF')">
+            <span class="staging-badge rf">RF: <strong id="projRfCount">0</strong></span>
+          </button>
+          <button class="project-data-tab" data-type="Digital" onclick="selectProjectDataTab('Digital')">
+            <span class="staging-badge digital">Digital: <strong id="projDigitalCount">0</strong></span>
+          </button>
+          <button class="project-data-tab" data-type="PWR" onclick="selectProjectDataTab('PWR')">
+            <span class="staging-badge pwr">PWR: <strong id="projPwrCount">0</strong></span>
+          </button>
+        </div>
+        <div class="project-data-list" id="projectDataList">
+          <p class="placeholder-text">載入中...</p>
+        </div>
+        <!-- Edit area (reuses result table format) -->
+        <div class="project-edit-area" id="projectEditArea" style="display:none">
+          <div class="project-edit-header">
+            <h3 id="projectEditTitle">編輯元件</h3>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-sm" onclick="saveProjectEdit()">💾 儲存變更</button>
+              <button class="btn btn-sm" onclick="cancelProjectEdit()">取消</button>
+            </div>
+          </div>
+          <div class="result-table-wrap" id="projectEditTableWrap"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- STEP 2: Component Type -->
-    <section class="panel step-panel">
+    <section class="panel step-panel" id="step2Panel">
       <div class="panel-header">
         <h2><span class="step-number">2</span> 元件類型</h2>
       </div>
@@ -123,7 +159,7 @@
     </section>
 
     <!-- STEP 3: Input Datasheet -->
-    <section class="panel step-panel">
+    <section class="panel step-panel" id="step3Panel">
       <div class="panel-header">
         <h2><span class="step-number">3</span> 輸入 Datasheet</h2>
       </div>
@@ -198,7 +234,7 @@
     </section>
 
     <!-- STEP 5: Staging List -->
-    <section class="panel step-panel">
+    <section class="panel step-panel" id="step5Panel">
       <div class="panel-header">
         <h2><span class="step-number">5</span> 加入暫存清單</h2>
       </div>
@@ -234,7 +270,7 @@
     </section>
 
     <!-- STEP 6: Write to Firebase -->
-    <section class="panel step-panel">
+    <section class="panel step-panel" id="step6Panel">
       <div class="panel-header">
         <h2><span class="step-number">6</span> 寫入 Firebase</h2>
       </div>

@@ -14,6 +14,10 @@ let imageList = [];           // [{ base64, mimeType }]  — 支援多張截圖
 let imageBase64 = null;       // 保留向後相容（指向第一張）
 let imageMimeType = null;
 let pdfBase64 = null;
+let projectData = null;          // Loaded project data from Firebase
+let projectDataTab = 'RF';       // Current tab in project data panel
+let editingComponent = null;     // { type, index, record } — currently editing component
+let isExistingProject = false;   // Whether viewing an existing project
 
 // ---- Default Values per Component Type ----
 const DEFAULTS = {
@@ -91,9 +95,17 @@ function setupEventListeners() {
   });
 
   // Project select
-  document.getElementById('projectSelect').addEventListener('change', (e) => {
+  document.getElementById('projectSelect').addEventListener('change', async (e) => {
     selectedProjectId = e.target.value;
     updateWriteTargets();
+
+    if (selectedProjectId) {
+      await loadProjectData(selectedProjectId);
+    } else {
+      projectData = null;
+      isExistingProject = false;
+      toggleProjectMode(false);
+    }
   });
 
   // Image drop zone
@@ -828,4 +840,288 @@ function showLoading(text) {
 
 function hideLoading() {
   document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// ============================================
+// Project Data — 讀取已存在專案的元件清單
+// ============================================
+async function loadProjectData(projectId) {
+  try {
+    showLoading('載入專案資料...');
+    projectData = await fetchProjectData(projectId);
+
+    const rfCount = (projectData.rf_data || []).length;
+    const digitalCount = (projectData.digital_data || []).length;
+    const pwrCount = (projectData.pwr_data || []).length;
+    const total = rfCount + digitalCount + pwrCount;
+
+    isExistingProject = total > 0;
+
+    document.getElementById('projRfCount').textContent = rfCount;
+    document.getElementById('projDigitalCount').textContent = digitalCount;
+    document.getElementById('projPwrCount').textContent = pwrCount;
+    document.getElementById('projectDataCount').textContent = `共 ${total} 筆元件`;
+
+    toggleProjectMode(isExistingProject);
+
+    if (isExistingProject) {
+      // Auto-select first tab with data
+      if (rfCount > 0) selectProjectDataTab('RF');
+      else if (digitalCount > 0) selectProjectDataTab('Digital');
+      else selectProjectDataTab('PWR');
+    }
+  } catch (err) {
+    showToast(`載入專案失敗: ${err.message}`, 'error');
+    isExistingProject = false;
+    toggleProjectMode(false);
+  } finally {
+    hideLoading();
+  }
+}
+
+function toggleProjectMode(showExisting) {
+  // Show/hide project data panel
+  document.getElementById('projectDataPanel').style.display = showExisting ? '' : 'none';
+
+  // Show/hide "新增元件" button
+  document.getElementById('switchToAddBtn').style.display = showExisting ? '' : 'none';
+
+  // Hide new-project-only panels when viewing existing project
+  const newProjectPanels = ['step2Panel', 'step3Panel', 'step4Panel', 'step5Panel', 'step6Panel'];
+  newProjectPanels.forEach(id => {
+    document.getElementById(id).style.display = showExisting ? 'none' : '';
+  });
+}
+
+function switchToAddMode() {
+  // Show all add-new panels alongside project data
+  const addPanels = ['step2Panel', 'step3Panel', 'step4Panel', 'step5Panel', 'step6Panel'];
+  addPanels.forEach(id => {
+    document.getElementById(id).style.display = '';
+  });
+  document.getElementById('switchToAddBtn').style.display = 'none';
+
+  // Scroll to step 2
+  document.getElementById('step2Panel').scrollIntoView({ behavior: 'smooth' });
+}
+
+function selectProjectDataTab(type) {
+  projectDataTab = type;
+  document.querySelectorAll('.project-data-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === type);
+  });
+  cancelProjectEdit();
+  renderProjectDataList();
+}
+
+function renderProjectDataList() {
+  const listEl = document.getElementById('projectDataList');
+  const fieldName = FIELD_MAP[projectDataTab];
+  const items = (projectData && projectData[fieldName]) || [];
+
+  if (items.length === 0) {
+    listEl.innerHTML = '<p class="placeholder-text">此類型尚無元件資料</p>';
+    return;
+  }
+
+  let html = '<table class="data-table project-data-table"><thead><tr>';
+  html += '<th>#</th><th>Component</th><th>Qty</th><th>Power(W)</th><th>Limit(°C)</th><th>R_jc</th><th>TIM</th><th>操作</th>';
+  html += '</tr></thead><tbody>';
+
+  items.forEach((item, idx) => {
+    html += `<tr>
+      <td class="value-display">${idx + 1}</td>
+      <td class="value-display">${item.Component || '—'}</td>
+      <td class="value-display">${item.Qty ?? '—'}</td>
+      <td class="value-display">${item['Power(W)'] ?? '—'}</td>
+      <td class="value-display">${item['Limit(C)'] ?? '—'}</td>
+      <td class="value-display">${item.R_jc ?? '—'}</td>
+      <td class="value-display">${item.TIM_Type ?? '—'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="editProjectComponent('${projectDataTab}', ${idx})">編輯</button>
+        <button class="btn-remove" onclick="deleteProjectComponent('${projectDataTab}', ${idx})">刪除</button>
+      </td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  listEl.innerHTML = html;
+}
+
+function editProjectComponent(type, index) {
+  const fieldName = FIELD_MAP[type];
+  const items = projectData[fieldName];
+  const record = { ...items[index] };
+
+  editingComponent = { type, index, record };
+
+  // Show edit area with same format as result table
+  const editArea = document.getElementById('projectEditArea');
+  editArea.style.display = '';
+  document.getElementById('projectEditTitle').textContent = `編輯: ${record.Component || '元件'}`;
+
+  renderProjectEditTable();
+
+  // Scroll to edit area
+  editArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderProjectEditTable() {
+  if (!editingComponent) return;
+
+  const wrap = document.getElementById('projectEditTableWrap');
+  const record = editingComponent.record;
+
+  let html = '<table class="data-table"><thead><tr>';
+  html += '<th>欄位</th><th>值</th><th>狀態</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const field of FIELDS) {
+    const value = record[field.key];
+    const status = getFieldStatus(field, value, record);
+
+    html += '<tr>';
+    html += `<td style="font-weight:500">${field.label}</td>`;
+    html += `<td class="cell-editable" onclick="editProjectCell(this, '${field.key}', '${field.type}')" data-field="${field.key}">`;
+
+    if (field.type === 'enum') {
+      html += `<span class="value-display">${value ?? '<span class="value-null">null</span>'}</span>`;
+    } else {
+      html += `<span class="value-display">${value !== null && value !== undefined ? value : '<span class="value-null">null</span>'}</span>`;
+    }
+
+    html += '</td>';
+    html += `<td>${status}</td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function editProjectCell(td, fieldKey, fieldType) {
+  if (td.querySelector('input, select')) return;
+  if (!editingComponent) return;
+
+  const record = editingComponent.record;
+  const currentValue = record[fieldKey];
+  const field = FIELDS.find(f => f.key === fieldKey);
+
+  if (fieldType === 'enum' && field.options) {
+    const select = document.createElement('select');
+    select.className = 'cell-select';
+    field.options.forEach(opt => {
+      const option = document.createElement('option');
+      option.value = opt;
+      option.textContent = opt;
+      if (opt === currentValue) option.selected = true;
+      select.appendChild(option);
+    });
+
+    select.addEventListener('change', () => {
+      record[fieldKey] = select.value;
+      renderProjectEditTable();
+    });
+    select.addEventListener('blur', () => renderProjectEditTable());
+
+    td.innerHTML = '';
+    td.appendChild(select);
+    select.focus();
+  } else {
+    const input = document.createElement('input');
+    input.className = 'cell-input';
+    input.type = fieldType === 'number' ? 'number' : 'text';
+    input.step = 'any';
+    input.value = currentValue ?? '';
+
+    const commit = () => {
+      let newVal = input.value.trim();
+      if (fieldType === 'number') {
+        newVal = newVal === '' ? null : parseFloat(newVal);
+      }
+      record[fieldKey] = newVal;
+      renderProjectEditTable();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commit();
+      if (e.key === 'Escape') renderProjectEditTable();
+    });
+    input.addEventListener('blur', commit);
+
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+  }
+}
+
+async function saveProjectEdit() {
+  if (!editingComponent || !selectedProjectId) return;
+
+  const { type, index, record } = editingComponent;
+  const fieldName = FIELD_MAP[type];
+  const items = [...projectData[fieldName]];
+  items[index] = record;
+
+  try {
+    showLoading('儲存中...');
+    await updateProjectComponent(selectedProjectId, fieldName, items);
+    projectData[fieldName] = items;
+
+    // Also update library
+    try {
+      await writeToLibrary(type, record);
+    } catch (e) {
+      // Library write is optional, don't block
+    }
+
+    cancelProjectEdit();
+    renderProjectDataList();
+    showToast(`已儲存: ${record.Component}`, 'success');
+  } catch (err) {
+    showToast(`儲存失敗: ${err.message}`, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+function cancelProjectEdit() {
+  editingComponent = null;
+  document.getElementById('projectEditArea').style.display = 'none';
+}
+
+async function deleteProjectComponent(type, index) {
+  if (!selectedProjectId || !projectData) return;
+
+  const fieldName = FIELD_MAP[type];
+  const items = [...projectData[fieldName]];
+  const removed = items[index];
+
+  if (!confirm(`確定要刪除「${removed.Component || '此元件'}」嗎？`)) return;
+
+  items.splice(index, 1);
+
+  try {
+    showLoading('刪除中...');
+    await updateProjectComponent(selectedProjectId, fieldName, items);
+    projectData[fieldName] = items;
+
+    // Update counts
+    const rfCount = (projectData.rf_data || []).length;
+    const digitalCount = (projectData.digital_data || []).length;
+    const pwrCount = (projectData.pwr_data || []).length;
+    document.getElementById('projRfCount').textContent = rfCount;
+    document.getElementById('projDigitalCount').textContent = digitalCount;
+    document.getElementById('projPwrCount').textContent = pwrCount;
+    document.getElementById('projectDataCount').textContent = `共 ${rfCount + digitalCount + pwrCount} 筆元件`;
+
+    cancelProjectEdit();
+    renderProjectDataList();
+    showToast(`已刪除: ${removed.Component}`, 'success');
+  } catch (err) {
+    showToast(`刪除失敗: ${err.message}`, 'error');
+  } finally {
+    hideLoading();
+  }
 }
